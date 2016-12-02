@@ -111,6 +111,7 @@ def main():
 
     model = mx.model.FeedForward(
         symbol=mlp,        # network structure
+        ctx=mx.gpu(0),     # gpu/cpu
         num_epoch=10,      # number of data passes for training
         learning_rate=0.1  # learning rate of SGD
     )
