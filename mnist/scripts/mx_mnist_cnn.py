@@ -15,7 +15,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)d\t%(message)s',
     datefmt='%Y-%m-%d %H:%M:%S')
-logger = logging.getLogger("mx_mnist_mlp")
+logger = logging.getLogger("mx_mnist_cnn")
 
 
 TMP_DATA_DIR = '../tmp/data/'
@@ -82,35 +82,36 @@ def main():
 
     # Create a place holder variable for the input data
     data = mx.sym.Variable('data')
-    # Flatten the data from 4-D shape (batch_size, num_channel, width, height)
-    # into 2-D (batch_size, num_channel*width*height)
-    data = mx.sym.Flatten(data=data)
-
-    # The first fully-connected layer
-    fc1 = mx.sym.FullyConnected(data=data, name='fc1', num_hidden=128)
-    # Apply relu to the output of the first fully-connected layer
-    act1 = mx.sym.Activation(data=fc1, name='relu1', act_type="relu")
-
-    # The second fully-connected layer and the according activation function
-    fc2 = mx.sym.FullyConnected(data=act1, name='fc2', num_hidden=64)
-    act2 = mx.sym.Activation(data=fc2, name='relu2', act_type="relu")
-
-    # The third fully-connected layer, note that the hidden size should be 10, which is the number of unique digits
-    fc3 = mx.sym.FullyConnected(data=act2, name='fc3', num_hidden=10)
-    # The softmax and loss layer
-    mlp = mx.sym.SoftmaxOutput(data=fc3, name='softmax')
+    # first conv layer
+    conv1 = mx.sym.Convolution(data=data, kernel=(5, 5), num_filter=20)
+    tanh1 = mx.sym.Activation(data=conv1, act_type="tanh")
+    pool1 = mx.sym.Pooling(data=tanh1, pool_type="max", kernel=(2, 2), stride=(2, 2))
+    # second conv layer
+    conv2 = mx.sym.Convolution(data=pool1, kernel=(5, 5), num_filter=50)
+    tanh2 = mx.sym.Activation(data=conv2, act_type="tanh")
+    pool2 = mx.sym.Pooling(data=tanh2, pool_type="max", kernel=(2, 2), stride=(2, 2))
+    # first fully-connected layer
+    flatten = mx.sym.Flatten(data=pool2)
+    fc1 = mx.sym.FullyConnected(data=flatten, num_hidden=500)
+    tanh3 = mx.sym.Activation(data=fc1, act_type="tanh")
+    # dropout layer
+    dropout = mx.sym.Dropout(data=tanh3, p=0.5)
+    # second fully-connected layer
+    fc2 = mx.sym.FullyConnected(data=dropout, num_hidden=10)
+    # softmax
+    lenet = mx.sym.SoftmaxOutput(data=fc2, name='softmax')
 
     logger.info("model is ok")
 
     # We visualize the network structure with output size (the batch_size is ignored.)
     shape = {"data": (batch_size, 1, 28, 28)}
-    name = "network_structure_mx_mnist_mlp"
-    dot = mx.viz.plot_network(symbol=mlp, shape=shape)
+    name = "network_structure_mx_mnist_cnn"
+    dot = mx.viz.plot_network(symbol=lenet, shape=shape)
     dot.render(name)
     print "%s.pdf is created" % name
 
     model = mx.model.FeedForward(
-        symbol=mlp,        # network structure
+        symbol=lenet,      # network structure
         ctx=mx.gpu(0),     # gpu/cpu
         num_epoch=10,      # number of data passes for training
         learning_rate=0.1  # learning rate of SGD
