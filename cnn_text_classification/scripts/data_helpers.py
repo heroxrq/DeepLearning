@@ -1,9 +1,11 @@
-import numpy as np
-import re
 import itertools
-from collections import Counter
 import os
-# from gensim.models import word2vec
+import re
+from collections import Counter
+
+import numpy as np
+from gensim.models import word2vec
+
 
 def clean_str(string):
     """
@@ -36,15 +38,15 @@ def load_data_and_labels():
     neg_path = "../data/rt-polaritydata/rt-polarity.neg"
     if not os.path.exists(pos_path):
         os.system("git clone https://github.com/dennybritz/cnn-text-classification-tf.git")
-        os.system('mv cnn-text-classification-tf/data .')
+        os.system('mv cnn-text-classification-tf/data ..')
         os.system('rm -rf cnn-text-classification-tf')
     positive_examples = list(open(pos_path).readlines())
     positive_examples = [s.strip() for s in positive_examples]
     negative_examples = list(open(neg_path).readlines())
     negative_examples = [s.strip() for s in negative_examples]
-    # Split by words
+    # Split to words
     x_text = positive_examples + negative_examples
-    x_text = [clean_str(sent) for sent in x_text]
+    x_text = [clean_str(sentence) for sentence in x_text]
     x_text = [s.split(" ") for s in x_text]
     # Generate labels
     positive_labels = [1 for _ in positive_examples]
@@ -89,6 +91,7 @@ def build_input_data(sentences, labels, vocabulary):
     x = np.array([[vocabulary[word] for word in sentence] for sentence in sentences])
     y = np.array(labels)
     return [x, y]
+
 
 def build_input_data_with_word2vec(sentences, labels, word2vec):
     """Map sentences and labels to vectors based on a pretrained word2vec"""
