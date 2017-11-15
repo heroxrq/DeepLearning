@@ -4,7 +4,7 @@ import re
 from collections import Counter
 
 import numpy as np
-from gensim.models import word2vec
+# from gensim.models import word2vec
 
 
 def clean_str(string):

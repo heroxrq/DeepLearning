@@ -24,7 +24,7 @@ parser.add_argument('--kv-store', type=str, default='local',
                     help='key-value store type')
 parser.add_argument('--num-epochs', type=int, default=100,
                     help='max num of epochs')
-parser.add_argument('--batch-size', type=int, default=50,
+parser.add_argument('--batch-size', type=int, default=64,
                     help='the batch size')
 parser.add_argument('--optimizer', type=str, default='rmsprop',
                     help='the optimizer type')
@@ -45,7 +45,7 @@ def save_model():
     return mx.callback.do_checkpoint(prefix="../checkpoint/cnn", period=args.save_period)
 
 
-def data_iter(batch_size, embed_size, pre_trained_word2vec=False):
+def data_iter(batch_size, embed_size=300, pre_trained_word2vec=False):
     print('Loading data...')
     if pre_trained_word2vec:
         word2vec = data_helpers.load_pretrained_word2vec('data/rt.vec')
@@ -129,7 +129,7 @@ def train(symbol, train_iter, valid_iter):
             kvstore              = args.kv_store,
             optimizer            = args.optimizer,
             optimizer_params     = {'learning_rate': args.lr},
-            initializer          = mx.initializer.Normal(0.01),
+            initializer          = mx.initializer.Uniform(0.1),  # Uniform(0.1)-->0.79 Normal(0.01)-->0.75
             num_epoch            = args.num_epochs,
             batch_end_callback   = [mx.callback.Speedometer(args.batch_size, frequent=args.disp_batches)],
             epoch_end_callback   = save_model())
@@ -147,14 +147,14 @@ if __name__ == '__main__':
                      embed_size,
                      vocab_size,
                      num_classes=2,
-                     filter_list=[3, 4, 5],
+                     filter_list=[3, 4, 5, 6],
                      num_filter=100,
                      dropout=args.dropout,
                      pre_trained_word2vec=args.pretrained_embedding)
 
     # plot the network
-    dot = mx.viz.plot_network(symbol, shape={'data': (args.batch_size, 56)})
-    dot.view('network')
+    dot = mx.viz.plot_network(symbol, shape={'data': (args.batch_size, sentence_size)})
+    dot.view('cnn_text_classification')
 
     # train cnn model
     train(symbol, train_iter, valid_iter)
