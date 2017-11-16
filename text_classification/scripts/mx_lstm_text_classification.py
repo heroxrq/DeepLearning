@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 # ------------------------------------------------------------
 # argparse
 # ------------------------------------------------------------
-parser = argparse.ArgumentParser(description="cnn text classification",
+parser = argparse.ArgumentParser(description="lstm text classification",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--pretrained-embedding', type=bool, default=False,
                     help='use pre-trained word2vec')
@@ -30,8 +30,8 @@ parser.add_argument('--optimizer', type=str, default='rmsprop',
                     help='the optimizer type')
 parser.add_argument('--lr', type=float, default=0.0005,
                     help='initial learning rate')
-parser.add_argument('--dropout', type=float, default=0.5,
-                    help='dropout rate')
+parser.add_argument('--num-hidden', type=int, default=50,
+                    help='num of hidden units')
 parser.add_argument('--disp-batches', type=int, default=50,
                     help='show progress for every n batches')
 parser.add_argument('--save-period', type=int, default=1,
@@ -39,10 +39,10 @@ parser.add_argument('--save-period', type=int, default=1,
 args = parser.parse_args()
 
 
-def save_model():
-    if not os.path.exists("../checkpoint"):
-        os.mkdir("../checkpoint")
-    return mx.callback.do_checkpoint(prefix="../checkpoint/cnn", period=args.save_period)
+def save_model(prefix, dir="../checkpoint"):
+    if not os.path.exists(dir):
+        os.mkdir(dir)
+    return mx.callback.do_checkpoint(prefix=os.path.join(dir, prefix), period=args.save_period)
 
 
 def data_iter(batch_size, embed_size=300, pre_trained_word2vec=False):
@@ -84,38 +84,26 @@ def data_iter(batch_size, embed_size=300, pre_trained_word2vec=False):
 
 
 def sym_gen(batch_size, sentence_size, embed_size, vocab_size,
-            num_classes=2, filter_list=(3, 4, 5), num_filter=100,
-            dropout=0.5, pre_trained_word2vec=False):
+            num_classes=2, num_hidden=100, pre_trained_word2vec=False):
 
-    input_x = mx.sym.Variable('data')
-    input_y = mx.sym.Variable('softmax_label')
+    data = mx.sym.Variable('data')
+    label = mx.sym.Variable('softmax_label')
 
     if not pre_trained_word2vec:
-        embed_layer = mx.sym.Embedding(data=input_x, input_dim=vocab_size, output_dim=embed_size, name='word_embedding')
-        conv_input = mx.sym.reshape(data=embed_layer, shape=(batch_size, 1, sentence_size, embed_size))
+        word_vec = mx.sym.Embedding(data=data, input_dim=vocab_size, output_dim=embed_size, name='word_embedding')
     else:
-        conv_input = input_x
+        word_vec = data
 
-    pool_outputs = []
-    for i, filter_size in enumerate(filter_list):
-        convi = mx.sym.Convolution(data=conv_input, kernel=(filter_size, embed_size), stride=(1, 1),
-                                   num_filter=num_filter, no_bias=True, name='conv_' + str(filter_size))
-        bni = mx.sym.BatchNorm(data=convi, fix_gamma=False, use_global_stats=True, name='bn_' + str(filter_size))
-        acti = mx.sym.Activation(data=bni, act_type='relu', name='act_' + str(filter_size))
-        pooli = mx.sym.Pooling(data=acti, kernel=(sentence_size - filter_size + 1, 1),
-                               pool_type='max', name='pool_' + str(filter_size))
-        pool_outputs.append(pooli)
+    lstm_cell = mx.rnn.LSTMCell(num_hidden=num_hidden)
+    lstm_cell.reset()
+    outputs, states = lstm_cell.unroll(length=sentence_size,
+                                       inputs=word_vec,
+                                       layout='NTC',
+                                       merge_outputs=True)
 
-    concat = mx.sym.concat(*pool_outputs, dim=1, name='concat')
-    flatten = mx.sym.reshape(data=concat, shape=(batch_size, len(pool_outputs) * num_filter))
-
-    if dropout > 0.0:
-        dropout = mx.sym.Dropout(data=flatten, p=dropout, name='dropout')
-    else:
-        dropout = flatten
-
-    fc = mx.sym.FullyConnected(data=dropout, num_hidden=num_classes, name='fc')
-    output = mx.sym.SoftmaxOutput(data=fc, label=input_y, name='softmax')
+    flatten = mx.sym.reshape(data=outputs, shape=(batch_size, sentence_size * num_hidden))
+    fc = mx.sym.FullyConnected(data=flatten, num_hidden=num_classes, name='fc')
+    output = mx.sym.SoftmaxOutput(data=fc, label=label, name='softmax')
 
     return output
 
@@ -132,7 +120,7 @@ def train(symbol, train_iter, valid_iter):
             initializer          = mx.initializer.Uniform(0.1),  # Uniform(0.1)-->0.79 Normal(0.01)-->0.75
             num_epoch            = args.num_epochs,
             batch_end_callback   = [mx.callback.Speedometer(args.batch_size, frequent=args.disp_batches)],
-            epoch_end_callback   = save_model())
+            epoch_end_callback   = save_model('lstm'))
 
 
 if __name__ == '__main__':
@@ -147,14 +135,8 @@ if __name__ == '__main__':
                      embed_size,
                      vocab_size,
                      num_classes=2,
-                     filter_list=[3, 4, 5, 6],
-                     num_filter=100,
-                     dropout=args.dropout,
+                     num_hidden=args.num_hidden,
                      pre_trained_word2vec=args.pretrained_embedding)
-
-    # plot the network
-    dot = mx.viz.plot_network(symbol, shape={'data': (args.batch_size, sentence_size)})
-    dot.view('cnn_text_classification')
 
     # train cnn model
     train(symbol, train_iter, valid_iter)
