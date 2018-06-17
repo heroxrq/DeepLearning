@@ -2,6 +2,7 @@ import os
 
 from PIL import Image
 from parse_coordinate import parse_coordinate
+from calculate_angle import calculate_angle
 
 
 def crop_border_img(image_name, num_barcode, coordinates, input_dir, output_dir):
@@ -21,7 +22,9 @@ def crop_border_img(image_name, num_barcode, coordinates, input_dir, output_dir)
 
         cropped_img = img.crop((x1, y1, x2, y2))
 
-        cropped_image_name = image_name.split(".")[0] + "_" + str(i) + "." + image_name.split(".")[1]
+        angle = calculate_angle(barcode_coordinate)
+
+        cropped_image_name = image_name.split(".")[0] + "_" + str(i) + "_" + str(angle) + "." + image_name.split(".")[1]
         cropped_img.save(output_dir + os.sep + cropped_image_name)
 
 
@@ -44,7 +47,7 @@ def crop_square_img(image_name, image_dir, cropped_image_dir):
 
     cropped_img = img.crop((x1, y1, x2, y2))
 
-    cropped_image_name = image_name.split(".")[0] + "_" + "square" + "." + image_name.split(".")[1]
+    cropped_image_name = '.'.join(image_name.split(".")[:-1]) + "_" + "square" + "." + image_name.split(".")[-1]
     cropped_img.save(cropped_image_dir + os.sep + cropped_image_name)
 
 
