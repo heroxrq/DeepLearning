@@ -16,8 +16,10 @@ BEST_MODEL_FILE = MODEL_DIR + '/best_model.hdf5'
 BEST_WEIGHTS_FILE = MODEL_DIR + '/best_weights.hdf5'
 MODEL_FILE = MODEL_DIR + "/model.json"
 
+TF_LOG_DIR = BASE_DIR + "/log"
 # --------------------------------------------------
 # model config
 # --------------------------------------------------
 TRAIN_BATCH_SIZE = 8
+INFERENCE_BATCH_SIZE = 16
 EPOCHS = 200
